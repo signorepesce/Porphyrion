@@ -1,22 +1,23 @@
 #include "router.h"
 #include "call_api.h"
 #include "decoder.h"
+#include "dynbuf.h"
 #include "http_parser.h"
 #include "http_response.h"
+#include "stress.h"
+#include "worker.h"
 #include <assert.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
-#define BUFFER_SIZE 65536
-#define MAX_BODY_SIZE 65536
-#define URL_SIZE 2048
-#define METHOD_SIZE 16
-#define BODY_SIZE 16384
-#define CT_SIZE 256
-#define AUTH_SIZE 8192
+#define SOCKET_TIMEOUT_SEC 30
+#define REQ_READ_CHUNK 16384
+
+static pthread_mutex_t g_save_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static const struct
 {
@@ -36,66 +37,117 @@ static const struct
 };
 #define STATIC_FILE_COUNT (int)(sizeof(STATIC_FILES) / sizeof(STATIC_FILES[0]))
 
-/*
- * Reads the full HTTP request from the socket into buf.
- * Handles reading chunks if a Content-Length is present.
- *
- * @param sock
- * @param buf
- * @param buf_size
- * @param req
- * @return
- */
-static int read_full_request(int sock, char *buf, int buf_size,
-                             HttpRequest *req)
+int worker_ctx_init(WorkerCtx *ctx)
 {
-    assert(buf != NULL);
-    assert(req != NULL);
-    assert(buf_size > 0);
-    int n = (int)read(sock, buf, (size_t)buf_size - 1);
-    if (n <= 0)
-    {
-        return n;
-    }
-    buf[n] = '\0';
-    HttpParseResult pr = http_parse_request(buf, (size_t)n, req);
-    if (pr == HTTP_PARSE_ERROR)
+    assert(ctx != NULL);
+    if (dynbuf_init(&ctx->reqbuf, WORKER_REQ_MAX) != 0)
     {
         return -1;
     }
-    if (req->content_length > MAX_BODY_SIZE)
+    if (callscratch_init(&ctx->call) != 0)
+    {
+        dynbuf_free(&ctx->reqbuf);
+        return -1;
+    }
+    return 0;
+}
+
+void worker_ctx_reset(WorkerCtx *ctx)
+{
+    assert(ctx != NULL);
+    dynbuf_reset(&ctx->reqbuf);
+    callscratch_reset(&ctx->call);
+}
+
+void worker_ctx_free(WorkerCtx *ctx)
+{
+    assert(ctx != NULL);
+    dynbuf_free(&ctx->reqbuf);
+    callscratch_free(&ctx->call);
+}
+
+static int read_full_request(int sock, DynBuf *rb, HttpRequest *req)
+{
+    assert(rb != NULL);
+    assert(req != NULL);
+    int read_limit = 16 * 1024 * 1024;
+    HttpParseResult pr = HTTP_PARSE_NEED_MORE;
+
+    while (read_limit-- > 0)
+    {
+        if (rb->cap - rb->len < 2)
+        {
+            if (dynbuf_reserve(rb, rb->cap + REQ_READ_CHUNK) != 0)
+            {
+                break;
+            }
+            if (rb->cap - rb->len < 2)
+            {
+                break;
+            }
+        }
+        size_t space = rb->cap - rb->len - 1;
+        int r = (int)read(sock, rb->data + rb->len, space);
+        if (r <= 0)
+        {
+            if (rb->len == 0)
+            {
+                return r;
+            }
+            break;
+        }
+        rb->len += (size_t)r;
+        rb->data[rb->len] = '\0';
+        pr = http_parse_request(rb->data, rb->len, req);
+        if (pr == HTTP_PARSE_ERROR)
+        {
+            return -1;
+        }
+        if (pr == HTTP_PARSE_OK)
+        {
+            break;
+        }
+    }
+    if (pr != HTTP_PARSE_OK)
+    {
+        return -1;
+    }
+    if (req->content_length > (long)rb->max)
     {
         return -2;
     }
-    if (pr == HTTP_PARSE_OK && req->content_length > 0)
+    if (req->content_length > 0)
     {
-        int hdr_end_offset = (int)(req->body - buf);
-        int total_expected = hdr_end_offset + (int)req->content_length;
-        if (total_expected > buf_size - 1)
+        size_t hdr_end = (size_t)(req->body - rb->data);
+        size_t total_expected = hdr_end + (size_t)req->content_length;
+        if (total_expected + 1 > rb->max)
         {
             return -2;
         }
-        int read_limit = 64;
-        while (n < total_expected && read_limit-- > 0)
+        if (dynbuf_reserve(rb, total_expected + 1) != 0)
         {
-            int r = (int)read(sock, buf + n, (size_t)(buf_size - 1 - n));
+            return -2;
+        }
+        while (rb->len < total_expected && read_limit-- > 0)
+        {
+            size_t space = rb->cap - rb->len - 1;
+            if (space == 0)
+            {
+                break;
+            }
+            int r = (int)read(sock, rb->data + rb->len, space);
             if (r <= 0)
             {
                 break;
             }
-            n += r;
-            buf[n] = '\0';
+            rb->len += (size_t)r;
+            rb->data[rb->len] = '\0';
         }
-        http_parse_request(buf, (size_t)n, req);
+        http_parse_request(rb->data, rb->len, req);
     }
-    return n;
+    return (int)rb->len;
 }
 
-/*
- * Sends a 413 Payload Too Large response.
- *
- * @param sock
- */
 static void send_413(int sock)
 {
     const char *resp = "HTTP/1.1 413 Payload Too Large\r\n"
@@ -106,12 +158,6 @@ static void send_413(int sock)
     (void)send_all(sock, resp, strlen(resp));
 }
 
-/*
- * Sends a 400 Bad Request.
- *
- * @param sock
- * @param msg
- */
 static void send_400(int sock, const char *msg)
 {
     assert(msg != NULL);
@@ -120,92 +166,50 @@ static void send_400(int sock, const char *msg)
     send_text(sock, 400, body);
 }
 
-/*
- * Parses a URL-encoded proxy request body and triggers the call.
- *
- * @param sock
- * @param req
- */
-static void handle_proxy_route(int sock, const HttpRequest *req)
+static void handle_proxy_route(WorkerCtx *ctx, int sock, const HttpRequest *req)
 {
+    assert(ctx != NULL);
     assert(req != NULL);
-    if (!req->body || req->body_len == 0)
-    {
-        send_400(sock, "Empty body");
-        return;
-    }
-    static char url[URL_SIZE], method[METHOD_SIZE],
-                post_body[BODY_SIZE], ct[CT_SIZE],
-                headers[AUTH_SIZE];
-    url[0] = method[0] = post_body[0] = ct[0] = headers[0] = '\0';
-    static char body_copy[BODY_SIZE];
-    size_t copy_len =
-        req->body_len < BODY_SIZE - 1 ? req->body_len : BODY_SIZE - 1;
-    memcpy(body_copy, req->body, copy_len);
-    body_copy[copy_len] = '\0';
-    char *p = body_copy, *end = body_copy + copy_len;
-    while (p < end)
-    {
-        char *amp = memchr(p, '&', (size_t)(end - p));
-        char *seg_end = amp ? amp : end;
-        *seg_end = '\0';
-        char *eq = strchr(p, '=');
-        if (eq)
-        {
-            *eq = '\0';
-            const char *key = p;
-            char *val = eq + 1;
-            if (strcmp(key, "url") == 0)
-            {
-                url_decode(val, url, sizeof(url));
-            }
-            else if (strcmp(key, "method") == 0)
-            {
-                url_decode(val, method, sizeof(method));
-            }
-            else if (strcmp(key, "body") == 0)
-            {
-                url_decode(val, post_body, sizeof(post_body));
-            }
-            else if (strcmp(key, "ct") == 0)
-            {
-                url_decode(val, ct, sizeof(ct));
-            }
-            else if (strcmp(key, "headers") == 0)
-            {
-                url_decode(val, headers, sizeof(headers));
-            }
-        }
-        if (amp)
-        {
-            p = amp + 1;
-        }
-        else
-        {
-            break;
-        }
-    }
-    if (url[0] == '\0')
+    size_t url_len = 0, method_len = 0, ct_len = 0, hdr_len = 0;
+    const char *url_h = http_find_header(req, "X-Proxy-URL", &url_len);
+    const char *method_h = http_find_header(req, "X-Proxy-Method", &method_len);
+    const char *ct_h = http_find_header(req, "X-Proxy-CT", &ct_len);
+    const char *hdr_h = http_find_header(req, "X-Proxy-Headers", &hdr_len);
+    if (!url_h || url_len == 0)
     {
         send_400(sock, "Missing proxy URL");
         return;
     }
-    if (method[0] == '\0')
+    ProxyMeta *m = &ctx->meta;
+    (void)base64_decode(url_h, url_len, m->url, sizeof(m->url));
+    (void)base64_decode(ct_h ? ct_h : "", ct_len, m->ct, sizeof(m->ct));
+    (void)base64_decode(hdr_h ? hdr_h : "", hdr_len, m->headers,
+                        sizeof(m->headers));
+    if (method_h && method_len > 0)
     {
-        method[0] = 'G';
-        method[1] = 'E';
-        method[2] = 'T';
-        method[3] = '\0';
+        size_t mcopy = method_len < sizeof(m->method) - 1
+                           ? method_len
+                           : sizeof(m->method) - 1;
+        memcpy(m->method, method_h, mcopy);
+        m->method[mcopy] = '\0';
     }
-    perform_api_call(sock, url, method, post_body, ct, headers);
+    else
+    {
+        m->method[0] = 'G';
+        m->method[1] = 'E';
+        m->method[2] = 'T';
+        m->method[3] = '\0';
+    }
+    if (m->url[0] == '\0')
+    {
+        send_400(sock, "Missing proxy URL");
+        return;
+    }
+    perform_api_call(&ctx->call, sock, m->url, m->method,
+                     req->body ? req->body : "",
+                     req->body ? req->body_len : 0, m->ct, m->headers);
 }
 
-/*
- * Saves the JSON payload from the request body to disk.
- *
- * @param sock
- * @param req
- */
 static void handle_save_route(int sock, const HttpRequest *req)
 {
     assert(req != NULL);
@@ -214,55 +218,67 @@ static void handle_save_route(int sock, const HttpRequest *req)
         send_400(sock, "Empty body");
         return;
     }
-    FILE *f = fopen("data/requests.json", "w");
+    const char *tmp_path = "data/.requests.json.tmp";
+    const char *final_path = "data/requests.json";
+    (void)pthread_mutex_lock(&g_save_lock);
+    FILE *f = fopen(tmp_path, "w");
     if (!f)
     {
+        (void)pthread_mutex_unlock(&g_save_lock);
         send_text(sock, 500, "{\"error\":\"Cannot open data file\"}");
         return;
     }
     size_t written = fwrite(req->body, 1, req->body_len, f);
+    int flush_rc = fflush(f);
     int close_rc = fclose(f);
-    if (written != req->body_len || close_rc != 0)
+    if (written != req->body_len || flush_rc != 0 || close_rc != 0)
     {
+        (void)remove(tmp_path);
+        (void)pthread_mutex_unlock(&g_save_lock);
         send_text(sock, 500, "{\"error\":\"Write failed\"}");
         return;
     }
+    if (rename(tmp_path, final_path) != 0)
+    {
+        (void)remove(tmp_path);
+        (void)pthread_mutex_unlock(&g_save_lock);
+        send_text(sock, 500, "{\"error\":\"Rename failed\"}");
+        return;
+    }
+    (void)pthread_mutex_unlock(&g_save_lock);
     send_text(sock, 200, "{\"status\":\"saved\"}");
 }
 
-/*
- * Responds to HTTP requests.
- *
- * @param sock
- */
 static void handle_options(int sock)
 {
     const char *pre = "HTTP/1.1 204 No Content\r\n"
                       "Access-Control-Allow-Origin: *\r\n"
                       "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n"
-                      "Access-Control-Allow-Headers: Content-Type\r\n\r\n";
+                      "Access-Control-Allow-Headers: Content-Type, "
+                      "X-Proxy-URL, X-Proxy-Method, X-Proxy-CT, "
+                      "X-Proxy-Headers\r\n\r\n";
     (void)send_all(sock, pre, strlen(pre));
 }
 
-/*
- * Routes the parsed request to a specific handler or static file.
- *
- * @param sock
- * @param req
- */
-static void route_request(int sock, const HttpRequest *req)
+static void route_request(WorkerCtx *ctx, int sock, const HttpRequest *req)
 {
+    assert(ctx != NULL);
     assert(req != NULL);
     if (strcmp(req->method, "OPTIONS") == 0)
     {
         handle_options(sock);
         return;
     }
+    if (strncmp(req->path, "/stress/", 8) == 0)
+    {
+        stress_handle(sock, req);
+        return;
+    }
     if (strcmp(req->method, "POST") == 0)
     {
         if (strcmp(req->path, "/proxy") == 0)
         {
-            handle_proxy_route(sock, req);
+            handle_proxy_route(ctx, sock, req);
             return;
         }
         if (strcmp(req->path, "/save") == 0)
@@ -296,24 +312,26 @@ static void route_request(int sock, const HttpRequest *req)
     (void)send_all(sock, nf, strlen(nf));
 }
 
-/*
- * Reads the request, routes it, and terminates the socket.
- *
- * @param sock
- */
-void handle_client(int sock)
+void handle_client(WorkerCtx *ctx, int sock)
 {
+    assert(ctx != NULL);
     assert(sock >= 0);
-    static char buf[BUFFER_SIZE];
+    struct timeval tv;
+    tv.tv_sec = SOCKET_TIMEOUT_SEC;
+    tv.tv_usec = 0;
+    (void)setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    (void)setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+
     HttpRequest req;
-    int n = read_full_request(sock, buf, BUFFER_SIZE, &req);
+    int n = read_full_request(sock, &ctx->reqbuf, &req);
     if (n == -2)
     {
         send_413(sock);
     }
     else if (n > 0)
     {
-        route_request(sock, &req);
+        route_request(ctx, sock, &req);
     }
-    close(sock);
+    (void)close(sock);
+    worker_ctx_reset(ctx);
 }

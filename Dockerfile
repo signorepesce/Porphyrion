@@ -32,6 +32,7 @@ RUN ./configure \
         --disable-cookies --disable-netrc --disable-alt-svc --disable-hsts \
         --disable-doh --disable-aws --disable-form-api --disable-headers-api \
         --disable-progress-meter \
+        CFLAGS="-Os -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables" \
     && make -j"$(nproc)" && make install
 
 FROM alpine:3.18@sha256:de0eb0b3f2a47ba1eb89389859a9bd88b28e82f5826b6969ad604979713c2d4f AS builder
@@ -51,8 +52,8 @@ COPY src/ src/
 COPY include/ include/
 ARG PACK=1
 RUN --mount=type=cache,target=/app/obj,id=obj-alpine318 \
-    make -j"$(nproc)" LDFLAGS="-static -lcurl -lmbedtls -lmbedx509 -lmbedcrypto \
-                               -lz -lm -s" && \
+    make -j"$(nproc)" LDFLAGS="-static -Wl,--gc-sections -lcurl -lmbedtls \
+                               -lmbedx509 -lmbedcrypto -lz -lm -pthread -s" && \
     strip --strip-all sam-porter && \
     objcopy --remove-section .eh_frame --remove-section .eh_frame_hdr \
             --remove-section .comment --remove-section .note.gnu.build-id \
@@ -62,7 +63,7 @@ RUN --mount=type=cache,target=/app/obj,id=obj-alpine318 \
 FROM scratch
 LABEL org.opencontainers.image.title="Porphyrion" \
       org.opencontainers.image.description="API client" \
-      org.opencontainers.image.version="v0.5" \
+      org.opencontainers.image.version="v0.6" \
       org.opencontainers.image.source="https://github.com/katevaschris/Porphyrion"
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /app/sam-porter /sam-porter

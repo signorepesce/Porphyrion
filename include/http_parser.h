@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define HTTP_MAX_HEADERS 32
+#define HTTP_MAX_HEADERS 64
 #define HTTP_MAX_METHOD 16
 #define HTTP_MAX_PATH 512
 

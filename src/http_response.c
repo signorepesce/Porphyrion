@@ -7,17 +7,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define SEND_MAX_CHUNKS 65536
-#define SERVE_MAX_CHUNKS 65536
+#define SEND_MAX_CHUNKS (64 * 1024 * 1024)
+#define SERVE_MAX_CHUNKS (64 * 1024 * 1024)
 
-/*
- * Writes the whole buffer to the socket, tolerating partial sends.
- *
- * @param sock
- * @param buf
- * @param len
- * @return
- */
 int send_all(int sock, const char *buf, size_t len)
 {
     assert(buf != NULL);
@@ -36,13 +28,6 @@ int send_all(int sock, const char *buf, size_t len)
     return (sent == len) ? 0 : -1;
 }
 
-/*
- * Serves a static file directly to the socket.
- *
- * @param sock
- * @param path
- * @param ct
- */
 void serve_file(int sock, const char *path, const char *ct)
 {
     assert(path != NULL);
@@ -87,13 +72,6 @@ void serve_file(int sock, const char *path, const char *ct)
     (void)close(fd);
 }
 
-/*
- * Sends a JSON text response.
- *
- * @param sock
- * @param status
- * @param body
- */
 void send_text(int sock, int status, const char *body)
 {
     assert(body != NULL);

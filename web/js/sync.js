@@ -15,9 +15,8 @@ return{url:'https://www.googleapis.com/upload/drive/v3/files/'+(c.fileId||'')+'?
 }var ca=c.token?['Authorization: Bearer '+c.token]:[];if(action==='pull')return{url:c.getUrl,method:'GET',headers:ca,body:''};
 return{url:c.putUrl||c.getUrl,method:'PUT',headers:ca.concat(['Content-Type: application/json']),body:content};
 }function decodePull(c,text){if(c.provider==='github'||c.provider==='gitlab'){var o=JSON.parse(text);
-return unb64(o.content||'');}return text;}async function proxyReq(plan){var p=new URLSearchParams({url:plan.url,method:plan.method,body:plan.body||'',ct:'application/json; charset=utf-8'});
-if(plan.headers&&plan.headers.length)p.append('headers',plan.headers.join('\n'));
-var r=await fetch('/proxy',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=utf-8'},body:p.toString()});
+return unb64(o.content||'');}return text;}async function proxyReq(plan){var ph=window.proxyHeaders(plan.method,plan.url,'application/json; charset=utf-8',plan.headers);
+var r=await fetch('/proxy',{method:'POST',headers:ph,body:plan.body||''});
 var text=await r.text();return{status:parseInt(r.headers.get('X-Proxy-Status')||'0',10),text:text};
 }async function pull(){var c=cfg();var res=await proxyReq(syncPlan(c,'pull'));if(res.status===404)throw new Error('not found (404)');
 if(res.status<200||res.status>=300)throw new Error(c.provider+' GET '+res.status);

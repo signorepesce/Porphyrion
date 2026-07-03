@@ -1,9 +1,9 @@
-VERSION = v0.5
+VERSION = v0.6
 CC     ?= gcc
 
 MAKEFLAGS += --warn-undefined-variables --no-builtin-rules
 
-CFLAGS  = -std=c11 -Os -Iinclude -DPORPHYRION_VERSION=\"$(VERSION)\"
+CFLAGS  = -std=c11 -Os -pthread -Iinclude -DPORPHYRION_VERSION=\"$(VERSION)\"
 CFLAGS += -Wcast-align -Wcast-qual -Wconversion -Wdouble-promotion \
           -Wduplicated-branches -Wduplicated-cond -Werror -Wextra \
           -Wformat=2 -Wformat-security -Wformat-signedness \
@@ -16,18 +16,24 @@ CFLAGS += -D_FORTIFY_SOURCE=2 -fstack-protector-all
 CFLAGS += -fstack-clash-protection -fno-delete-null-pointer-checks
 CFLAGS += -ftrivial-auto-var-init=zero
 CFLAGS += -Wvla -Walloca -Wtrampolines
+CFLAGS += -ffunction-sections -fdata-sections
+CFLAGS += -fno-asynchronous-unwind-tables -fno-ident -pipe
 CFLAGS += -MMD -MP
 
-LDFLAGS = -lcurl -s
+LDFLAGS = -lcurl -pthread -s -Wl,--gc-sections
 
 TARGET     = sam-porter
 SRC        = src/call_api.c \
+             src/curl_util.c \
              src/decoder.c \
+             src/dynbuf.c \
              src/http_parser.c \
              src/http_response.c \
+             src/json.c \
              src/main.c \
              src/proxy_networking.c \
-             src/router.c
+             src/router.c \
+             src/stress.c
 
 IMAGE_NAME = porphyrion
 PORT       = 8099
@@ -41,7 +47,7 @@ DEP        = $(OBJ:.o=.d)
 
 all: $(TARGET)
 
-ANALYZE = -std=c11 -Iinclude -DPORPHYRION_VERSION=\"$(VERSION)\" -Wall -Wextra -fanalyzer -Werror
+ANALYZE = -std=c11 -pthread -Iinclude -DPORPHYRION_VERSION=\"$(VERSION)\" -Wall -Wextra -fanalyzer -Werror
 analyze:
 	@for f in $(SRC); do $(CC) $(ANALYZE) -c $$f -o /dev/null || exit 1; done
 	@echo "  -fanalyzer: clean"

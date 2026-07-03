@@ -5,12 +5,6 @@
 #include <string.h>
 #include <strings.h>
 
-/*
- * Checks if a byte is a valid HTTP token character.
- *
- * @param c byte to check
- * @return 1 if valid, 0 otherwise
- */
 static int is_token_char(unsigned char c)
 {
     static const char tchar[] = "!#$%&'*+-.^_`|~"
@@ -29,12 +23,6 @@ static int is_token_char(unsigned char c)
     return 0;
 }
 
-/*
- * Skips Optional Whitespace chars.
- *
- * @param p   pointer to current buffer position
- * @param end pointer to end of buffer
- */
 static void skip_ows(const char **p, const char *end)
 {
     assert(p != NULL && *p != NULL && end != NULL);
@@ -44,15 +32,6 @@ static void skip_ows(const char **p, const char *end)
     }
 }
 
-/*
- * Reads HTTP token.
- *
- * @param p        pointer to current buffer position
- * @param end      pointer to end of buffer
- * @param out      buffer to output token
- * @param out_size max size of output buffer
- * @return > 0 on success, -1 on failure
- */
 static int read_token(const char **p, const char *end, char *out,
                       size_t out_size)
 {
@@ -76,13 +55,6 @@ static int read_token(const char **p, const char *end, char *out,
     return count;
 }
 
-/*
- * Consumes a CRLF sequence from the buffer.
- *
- * @param p   pointer to current buffer position
- * @param end pointer to end of buffer
- * @return 1 if CRLF consumed, 0 otherwise
- */
 static int expect_crlf(const char **p, const char *end)
 {
     assert(p != NULL && *p != NULL && end != NULL);
@@ -98,14 +70,6 @@ static int expect_crlf(const char **p, const char *end)
     return 1;
 }
 
-/*
- * Parses the HTTP method an path.
- *
- * @param p   pointer to current buffer position
- * @param end pointer to end of buffer
- * @param req pointer to request struct
- * @return HTTP_PARSE_OK or error
- */
 static HttpParseResult parse_request_line(const char **p, const char *end,
                                           HttpRequest *req)
 {
@@ -160,14 +124,6 @@ static HttpParseResult parse_request_line(const char **p, const char *end,
     return HTTP_PARSE_OK;
 }
 
-/*
- * Parses HTTP headers incrementally.
- *
- * @param p
- * @param end
- * @param req
- * @return HTTP_PARSE_OK or error
- */
 static HttpParseResult parse_headers(const char **p, const char *end,
                                      HttpRequest *req)
 {
@@ -226,14 +182,6 @@ static HttpParseResult parse_headers(const char **p, const char *end,
     return HTTP_PARSE_ERROR;
 }
 
-/*
- * Parses the full HTTP request from the buffer.
- *
- * @param buf
- * @param len
- * @param req
- * @return
- */
 HttpParseResult http_parse_request(char *buf, size_t len, HttpRequest *req)
 {
     if (!buf || !req || len == 0)
@@ -294,14 +242,6 @@ HttpParseResult http_parse_request(char *buf, size_t len, HttpRequest *req)
     return HTTP_PARSE_OK;
 }
 
-/*
- * Finds an HTTP header by name.
- *
- * @param req
- * @param name
- * @param out_len
- * @return
- */
 const char *http_find_header(const HttpRequest *req, const char *name,
                              size_t *out_len)
 {
