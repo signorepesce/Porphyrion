@@ -1,54 +1,119 @@
-(function(){function cfg(){try{return JSON.parse(localStorage.getItem('ph-sync')||'{}');
-}catch(e){return{};}}function setCfg(c){localStorage.setItem('ph-sync',JSON.stringify(c));
-}function b64(s){return btoa(unescape(encodeURIComponent(s)));}function unb64(s){return decodeURIComponent(escape(atob(String(s).replace(/\s+/g,''))));
-}function syncPlan(c,action,content,sha){if(c.provider==='github'){var api=(c.base||'https://api.github.com')+'/repos/'+c.owner+'/'+c.repo+'/contents/'+(c.path||'requests.json');
-var auth=['Authorization: token '+(c.token||''),'Accept: application/vnd.github+json','User-Agent: Porphyrion'];
-if(action==='pull'||action==='getsha')return{url:api+'?ref='+(c.branch||'main'),method:'GET',headers:auth,body:''};
-return{url:api,method:'PUT',headers:auth,body:JSON.stringify({message:'Porphyrion sync',content:b64(content),branch:(c.branch||'main'),sha:sha||undefined})};
-}if(c.provider==='gitlab'){var base=(c.base||'https://gitlab.com')+'/api/v4/projects/'+encodeURIComponent(c.project||'')+'/repository/files/'+encodeURIComponent(c.path||'requests.json');
-var ga=['PRIVATE-TOKEN: '+(c.token||'')];if(action==='pull')return{url:base+'?ref='+(c.branch||'main'),method:'GET',headers:ga,body:''};
-return{url:base,method:'PUT',headers:ga.concat(['Content-Type: application/json']),body:JSON.stringify({branch:(c.branch||'main'),content:content,commit_message:'Porphyrion sync'})};
-}if(c.provider==='graph'){var auth2=['Authorization: Bearer '+(c.token||'')];if(action==='pull')return{url:c.url,method:'GET',headers:auth2,body:''};
-return{url:c.url,method:'PUT',headers:auth2.concat(['Content-Type: application/json']),body:content};
-}if(c.provider==='gdrive'){var gd=['Authorization: Bearer '+(c.token||'')];if(action==='pull')return{url:'https://www.googleapis.com/drive/v3/files/'+(c.fileId||'')+'?alt=media',method:'GET',headers:gd,body:''};
-return{url:'https://www.googleapis.com/upload/drive/v3/files/'+(c.fileId||'')+'?uploadType=media',method:'PATCH',headers:gd.concat(['Content-Type: application/json']),body:content};
-}var ca=c.token?['Authorization: Bearer '+c.token]:[];if(action==='pull')return{url:c.getUrl,method:'GET',headers:ca,body:''};
-return{url:c.putUrl||c.getUrl,method:'PUT',headers:ca.concat(['Content-Type: application/json']),body:content};
-}function decodePull(c,text){if(c.provider==='github'||c.provider==='gitlab'){var o=JSON.parse(text);
-return unb64(o.content||'');}return text;}async function proxyReq(plan){var ph=window.proxyHeaders(plan.method,plan.url,'application/json; charset=utf-8',plan.headers);
-var r=await fetch('/proxy',{method:'POST',headers:ph,body:plan.body||''});
-var text=await r.text();return{status:parseInt(r.headers.get('X-Proxy-Status')||'0',10),text:text};
-}async function pull(){var c=cfg();var res=await proxyReq(syncPlan(c,'pull'));if(res.status===404)throw new Error('not found (404)');
-if(res.status<200||res.status>=300)throw new Error(c.provider+' GET '+res.status);
-var arr=JSON.parse(decodePull(c,res.text));if(!Array.isArray(arr))throw new Error('not a collection');
-return arr;}async function push(){var c=cfg(),content=JSON.stringify(savedList,null,2),sha;
-if(c.provider==='github'){var g=await proxyReq(syncPlan(c,'getsha'));if(g.status===200){try{sha=JSON.parse(g.text).sha;
-}catch(e){}}}var res=await proxyReq(syncPlan(c,'put',content,sha));if(res.status<200||res.status>=300)throw new Error(c.provider+' PUT '+res.status);
-}async function doPush(set){var c=cfg();if(!c.provider){set('Configure sync first',true);
-return;}try{set('Pushing');await push();set('Pushed '+new Date().toLocaleTimeString());
-}catch(e){set('Push failed: '+e.message,true);}}async function doPull(set){var c=cfg();
-if(!c.provider){set('Configure sync first',true);return;}if(savedList.length&&!confirm('Replace local collections with the remote version?'))return;
-try{set('Pulling');var arr=await pull();savedList=arr;storeSaved();renderSaved();
-set('Pulled '+arr.length);}catch(e){set('Pull failed: '+e.message,true);}}var FIELDS={github:[['owner','Owner / org'],['repo','Repository'],['path','Path (requests.json)'],['branch','Branch (main)'],['token','Token','password']],gitlab:[['project','Project id or group/repo'],['path','Path (requests.json)'],['branch','Branch (main)'],['token','Token','password']],graph:[['url','Graph content URL'],['token','Bearer token','password']],gdrive:[['fileId','File ID'],['token','Bearer token','password']],custom:[['getUrl','GET URL'],['putUrl','PUT URL'],['token','Bearer token','password']]};
-function renderFields(host){var c=cfg();host.innerHTML='';(FIELDS[c.provider]||[]).forEach(function(f){var i=document.createElement('input');
-i.className='kv-input w-full';i.style.marginTop='.3rem';i.type=f[2]==='password'?'password':'text';
-i.placeholder=f[1];i.value=c[f[0]]||'';i.oninput=function(){var cc=cfg();cc[f[0]]=i.value;
-setCfg(cc);};host.appendChild(i);});}function buildSettings(){var panel=document.getElementById('set-sync')||document.getElementById('settings-panel');
-if(!panel||document.getElementById('syncProvider'))return;var c=cfg(),wrap=document.createElement('div');
-var sep=document.createElement('div');sep.className='ctx-sep';wrap.appendChild(sep);
-var lbl=document.createElement('label');lbl.className='lbl-sm';lbl.textContent='SYNC';
-wrap.appendChild(lbl);var sel=document.createElement('select');sel.id='syncProvider';
-sel.className='kv-input w-full';[['','Off'],['github','GitHub'],['gitlab','GitLab'],['graph','OneDrive / SharePoint'],['gdrive','Google Drive'],['custom','Custom URL']].forEach(function(o){var op=document.createElement('option');
-op.value=o[0];op.textContent=o[1];if(c.provider===o[0])op.selected=true;sel.appendChild(op);
-});wrap.appendChild(sel);var fields=document.createElement('div');fields.id='syncFields';
-wrap.appendChild(fields);var row=document.createElement('div');row.className='row';
-row.style.marginTop='.4rem';var pullB=document.createElement('button');pullB.textContent='Pull';
-pullB.className='kv-add';pullB.style.flex='1';var pushB=document.createElement('button');
-pushB.textContent='Push';pushB.className='kv-add';pushB.style.flex='1';pushB.style.borderStyle='solid';
-row.appendChild(pullB);row.appendChild(pushB);wrap.appendChild(row);var st=document.createElement('div');
-st.className='hint';st.id='syncStatus';st.style.marginTop='.3rem';wrap.appendChild(st);
-panel.appendChild(wrap);function set(m,e){st.textContent=m;st.style.color=e?'var(--red)':'var(--tx)';
-}sel.onchange=function(){var cc=cfg();cc.provider=sel.value;setCfg(cc);renderFields(fields);
-};pullB.onclick=function(){doPull(set);};pushB.onclick=function(){doPush(set);};
-renderFields(fields);}function buildSyncButton(){var host=document.querySelector('.hdr-btns');if(!host||document.getElementById('syncBtn'))return;var ico='<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',label=ico+' Sync';var b=document.createElement('button');b.id='syncBtn';b.className='hdr-btn';b.title='Sync collections';b.innerHTML=label;b.onclick=function(){if(!cfg().provider){document.getElementById('gearBtn').click();return;}doPush(function(m,e){b.innerHTML=e?'&times; Failed':(/Pushed/.test(m)?'&check; Synced':'&hellip; Sync');b.style.color=e?'var(--red)':(/Pushed/.test(m)?'var(--save)':'');if(e||/Pushed/.test(m))setTimeout(function(){b.innerHTML=label;b.style.color='';},1800);});};var anchor=document.getElementById('historyBtn')||document.getElementById('gearBtn');if(anchor)host.insertBefore(b,anchor);else host.appendChild(b);}function init(){buildSettings();}if(document.readyState!=='loading')init();else document.addEventListener('DOMContentLoaded',init);
+(function () {
+    function cfg() {
+        try {
+            return JSON.parse(localStorage.getItem('ph-sync') || '{}');
+        } catch (e) { return {}; }
+    } function setCfg(c) {
+        localStorage.setItem('ph-sync', JSON.stringify(c));
+    } function b64(s) { return btoa(unescape(encodeURIComponent(s))); } function unb64(s) {
+        return decodeURIComponent(escape(atob(String(s).replace(/\s+/g, ''))));
+    } function syncPlan(c, action, content, sha) {
+        if (c.provider === 'github') {
+            var api = (c.base || 'https://api.github.com') + '/repos/' + c.owner + '/' + c.repo + '/contents/' + (c.path || 'requests.json');
+            var auth = ['Authorization: token ' + (c.token || ''), 'Accept: application/vnd.github+json', 'User-Agent: Porphyrion'];
+            if (action === 'pull' || action === 'getsha') return { url: api + '?ref=' + (c.branch || 'main'), method: 'GET', headers: auth, body: '' };
+            return { url: api, method: 'PUT', headers: auth, body: JSON.stringify({ message: 'Porphyrion sync', content: b64(content), branch: (c.branch || 'main'), sha: sha || undefined }) };
+        } if (c.provider === 'gitlab') {
+            var base = (c.base || 'https://gitlab.com') + '/api/v4/projects/' + encodeURIComponent(c.project || '') + '/repository/files/' + encodeURIComponent(c.path || 'requests.json');
+            var ga = ['PRIVATE-TOKEN: ' + (c.token || '')]; if (action === 'pull') return { url: base + '?ref=' + (c.branch || 'main'), method: 'GET', headers: ga, body: '' };
+            return { url: base, method: 'PUT', headers: ga.concat(['Content-Type: application/json']), body: JSON.stringify({ branch: (c.branch || 'main'), content: content, commit_message: 'Porphyrion sync' }) };
+        } if (c.provider === 'graph') {
+            var auth2 = ['Authorization: Bearer ' + (c.token || '')]; if (action === 'pull') return { url: c.url, method: 'GET', headers: auth2, body: '' };
+            return { url: c.url, method: 'PUT', headers: auth2.concat(['Content-Type: application/json']), body: content };
+        } if (c.provider === 'gdrive') {
+            var gd = ['Authorization: Bearer ' + (c.token || '')]; if (action === 'pull') return { url: 'https://www.googleapis.com/drive/v3/files/' + (c.fileId || '') + '?alt=media', method: 'GET', headers: gd, body: '' };
+            return { url: 'https://www.googleapis.com/upload/drive/v3/files/' + (c.fileId || '') + '?uploadType=media', method: 'PATCH', headers: gd.concat(['Content-Type: application/json']), body: content };
+        } var ca = c.token ? ['Authorization: Bearer ' + c.token] : []; if (action === 'pull') return { url: c.getUrl, method: 'GET', headers: ca, body: '' };
+        return { url: c.putUrl || c.getUrl, method: 'PUT', headers: ca.concat(['Content-Type: application/json']), body: content };
+    } function decodePull(c, text) {
+        if (c.provider === 'github' || c.provider === 'gitlab') {
+            var o = JSON.parse(text);
+            return unb64(o.content || '');
+        } return text;
+    } async function proxyReq(plan) {
+        var p = new URLSearchParams({ url: plan.url, method: plan.method, body: plan.body || '', ct: 'application/json; charset=utf-8' });
+        if (plan.headers && plan.headers.length) p.append('headers', plan.headers.join('\n'));
+        var r = await fetch('/proxy', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' }, body: p.toString() });
+        var text = await r.text(); return { status: parseInt(r.headers.get('X-Proxy-Status') || '0', 10), text: text };
+    } async function pull() {
+        var c = cfg(); var res = await proxyReq(syncPlan(c, 'pull')); if (res.status === 404) throw new Error('not found (404)');
+        if (res.status < 200 || res.status >= 300) throw new Error(c.provider + ' GET ' + res.status);
+        var arr = JSON.parse(decodePull(c, res.text)); if (!Array.isArray(arr)) throw new Error('not a collection');
+        return arr;
+    } async function push() {
+        var c = cfg(), content = JSON.stringify(savedList, null, 2), sha;
+        if (c.provider === 'github') {
+            var g = await proxyReq(syncPlan(c, 'getsha')); if (g.status === 200) {
+                try {
+                    sha = JSON.parse(g.text).sha;
+                } catch (e) { }
+            }
+        } var res = await proxyReq(syncPlan(c, 'put', content, sha)); if (res.status < 200 || res.status >= 300) throw new Error(c.provider + ' PUT ' + res.status);
+    } async function doPush(set) {
+        var c = cfg(); if (!c.provider) {
+            set('Configure sync first', true);
+            return;
+        } try {
+            set('Pushing'); await push(); set('Pushed ' + new Date().toLocaleTimeString());
+        } catch (e) { set('Push failed: ' + e.message, true); }
+    } async function doPull(set) {
+        var c = cfg();
+        if (!c.provider) { set('Configure sync first', true); return; } if (savedList.length && !confirm('Replace local collections with the remote version?')) return;
+        try {
+            set('Pulling'); var arr = await pull(); savedList = arr; storeSaved(); renderSaved();
+            set('Pulled ' + arr.length);
+        } catch (e) { set('Pull failed: ' + e.message, true); }
+    } var FIELDS = { github: [['owner', 'Owner / org'], ['repo', 'Repository'], ['path', 'Path (requests.json)'], ['branch', 'Branch (main)'], ['token', 'Token', 'password']], gitlab: [['project', 'Project id or group/repo'], ['path', 'Path (requests.json)'], ['branch', 'Branch (main)'], ['token', 'Token', 'password']], graph: [['url', 'Graph content URL'], ['token', 'Bearer token', 'password']], gdrive: [['fileId', 'File ID'], ['token', 'Bearer token', 'password']], custom: [['getUrl', 'GET URL'], ['putUrl', 'PUT URL'], ['token', 'Bearer token', 'password']] };
+    function renderFields(host) {
+        var c = cfg(); host.innerHTML = ''; (FIELDS[c.provider] || []).forEach(function (f) {
+            var i = document.createElement('input');
+            i.className = 'kv-input w-full'; i.style.marginTop = '.3rem'; i.type = f[2] === 'password' ? 'password' : 'text';
+            i.placeholder = f[1]; i.value = c[f[0]] || ''; i.oninput = function () {
+                var cc = cfg(); cc[f[0]] = i.value;
+                setCfg(cc);
+            }; host.appendChild(i);
+        });
+    } function buildSettings() {
+        var panel = document.getElementById('settings-panel');
+        if (!panel || document.getElementById('syncProvider')) return; var c = cfg(), wrap = document.createElement('div');
+        var sep = document.createElement('div'); sep.className = 'ctx-sep'; wrap.appendChild(sep);
+        var lbl = document.createElement('label'); lbl.className = 'lbl-sm'; lbl.textContent = 'SYNC';
+        wrap.appendChild(lbl); var sel = document.createElement('select'); sel.id = 'syncProvider';
+        sel.className = 'kv-input w-full';[['', 'Off'], ['github', 'GitHub'], ['gitlab', 'GitLab'], ['graph', 'OneDrive / SharePoint'], ['gdrive', 'Google Drive'], ['custom', 'Custom URL']].forEach(function (o) {
+            var op = document.createElement('option');
+            op.value = o[0]; op.textContent = o[1]; if (c.provider === o[0]) op.selected = true; sel.appendChild(op);
+        }); wrap.appendChild(sel); var fields = document.createElement('div'); fields.id = 'syncFields';
+        wrap.appendChild(fields); var row = document.createElement('div'); row.className = 'row';
+        row.style.marginTop = '.4rem'; var pullB = document.createElement('button'); pullB.textContent = 'Pull';
+        pullB.className = 'kv-add'; pullB.style.flex = '1'; var pushB = document.createElement('button');
+        pushB.textContent = 'Push'; pushB.className = 'kv-add'; pushB.style.flex = '1'; pushB.style.borderStyle = 'solid';
+        row.appendChild(pullB); row.appendChild(pushB); wrap.appendChild(row); var st = document.createElement('div');
+        st.className = 'hint'; st.id = 'syncStatus'; st.style.marginTop = '.3rem'; wrap.appendChild(st);
+        panel.appendChild(wrap); function set(m, e) {
+            st.textContent = m; st.style.color = e ? 'var(--red)' : 'var(--tx)';
+        } sel.onchange = function () {
+            var cc = cfg(); cc.provider = sel.value; setCfg(cc); renderFields(fields);
+        }; pullB.onclick = function () { doPull(set); }; pushB.onclick = function () { doPush(set); };
+        renderFields(fields);
+    } function buildSyncButton() {
+        var tabs = document.querySelector('#panel-saved .side-tabs');
+        if (!tabs || document.getElementById('syncBtn')) return; var b = document.createElement('div');
+        b.id = 'syncBtn'; b.className = 'side-tab'; b.style.cssText = 'flex:0 0 auto;padding:.6rem .7rem';
+        var ico = '<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+        b.innerHTML = ico; b.onclick = function () {
+            if (!cfg().provider) {
+                document.getElementById('gearBtn').click();
+                return;
+            } doPush(function (m, e) {
+                b.innerHTML = e ? '&times;' : (/Pushed/.test(m) ? '&check;' : ico);
+                b.style.color = e ? 'var(--red)' : 'var(--save)'; if (/check|times/.test(b.innerHTML)) setTimeout(function () {
+                    b.innerHTML = ico;
+                    b.style.color = '';
+                }, 1800);
+            });
+        }; tabs.appendChild(b);
+    } function init() {
+        buildSettings();
+        buildSyncButton();
+    } if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
 })();
