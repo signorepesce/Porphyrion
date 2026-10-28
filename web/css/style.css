@@ -477,7 +477,8 @@ input#url {
     color: #fff
 }
 
-textarea#body {
+textarea#body,
+textarea#tests {
     width: 100%;
     min-height: 120px;
     background: var(--cbg);
@@ -977,7 +978,8 @@ pre#resp.dim {
 }
 
 .row-fill {
-    flex: 1
+    flex: 1;
+    min-width: 0
 }
 
 .row-between {
@@ -1401,4 +1403,32 @@ pre#resp.dim {
 
 .side-tab {
     cursor: pointer
+}
+.t-row {
+    display: flex;
+    gap: .5rem;
+    padding: .35rem .2rem;
+    border-bottom: 1px solid var(--brd);
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: .75rem
+}
+
+.t-ico {
+    width: 1rem;
+    font-weight: 700
+}
+
+.t-pass .t-ico,
+#testsBadge.ok {
+    color: var(--save)
+}
+
+.t-fail .t-ico,
+#testsBadge.bad {
+    color: var(--red)
+}
+
+.t-msg {
+    margin-left: auto;
+    color: var(--yel)
 }

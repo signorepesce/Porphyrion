@@ -1,5 +1,5 @@
 const root = document.documentElement; const $ = id => document.getElementById(id); const $$ = sel => document.querySelectorAll(sel);
-const D = { darkToggle: $('darkToggle'), corsToggle: $('corsToggle'), hatsToggle: $('hatsToggle'), hatsBg: $('hatsBg'), savedList: $('savedList'), historyList: $('historyList'), tabBar: $('tabBar'), tabCollections: $('tab-collections'), tabHistory: $('tab-history'), reqName: $('reqName'), reqFolder: $('reqFolder'), method: $('method'), url: $('url'), authType: $('authType'), authToken: $('authToken'), authUser: $('authUser'), authPass: $('authPass'), apiKey: $('apiKey'), apiVal: $('apiVal'), apiLoc: $('apiLoc'), bearerSect: $('auth-bearer-sect'), basicSect: $('auth-basic-sect'), apikeySect: $('auth-apikey-sect'), body: $('body'), formGrid: $('formGrid'), paramsGrid: $('paramsGrid'), headersGrid: $('headersGrid'), sendBtn: $('sendBtn'), saveBtn: $('saveBtn'), gearBtn: $('gearBtn'), settingsPanel: $('settings-panel'), curlBtn: $('curlBtn'), resp: $('resp'), badge: $('badge'), timing: $('timing'), respSize: $('respSize'), pathIndicator: $('pathIndicator'), ctxMenu: $('ctxMenu'), modalOverlay: $('modalOverlay'), modalTitle: $('modalTitle'), modalInput: $('modalInput'), modalOk: $('modalOk'), modalCancel: $('modalCancel'), folderModal: $('folderModal'), fmPath: $('fmPath'), fmName: $('fmName'), fmAuthType: $('fmAuthType'), fmAuthToken: $('fmAuthToken'), fmAuthUser: $('fmAuthUser'), fmAuthPass: $('fmAuthPass'), fmApiKey: $('fmApiKey'), fmApiVal: $('fmApiVal'), fmApiLoc: $('fmApiLoc'), fmBearerSect: $('fm-auth-bearer'), fmBasicSect: $('fm-auth-basic'), fmApikeySect: $('fm-auth-apikey'), badgeParams: $('badge-params'), badgeHeaders: $('badge-headers'), reqTabs: $('reqTabs'), graphqlPane: $('graphqlPane'), gqlQuery: $('gqlQuery'), gqlVars: $('gqlVars'), respHeadersPane: $('respHeadersPane'), respHeadersTable: $('respHeadersTable'), respTabs: $('respTabs'), respCopyBtn: $('respCopyBtn'), envSelect: $('envSelect'), envEditor: $('envEditor'), addEnvBtn: $('addEnvBtn'), };
+const D = { darkToggle: $('darkToggle'), corsToggle: $('corsToggle'), hatsToggle: $('hatsToggle'), hatsBg: $('hatsBg'), savedList: $('savedList'), historyList: $('historyList'), tabBar: $('tabBar'), tabCollections: $('tab-collections'), tabHistory: $('tab-history'), reqName: $('reqName'), reqFolder: $('reqFolder'), method: $('method'), url: $('url'), authType: $('authType'), authToken: $('authToken'), authUser: $('authUser'), authPass: $('authPass'), apiKey: $('apiKey'), apiVal: $('apiVal'), apiLoc: $('apiLoc'), bearerSect: $('auth-bearer-sect'), basicSect: $('auth-basic-sect'), apikeySect: $('auth-apikey-sect'), body: $('body'), formGrid: $('formGrid'), paramsGrid: $('paramsGrid'), headersGrid: $('headersGrid'), sendBtn: $('sendBtn'), saveBtn: $('saveBtn'), gearBtn: $('gearBtn'), settingsPanel: $('settings-panel'), curlBtn: $('curlBtn'), resp: $('resp'), badge: $('badge'), timing: $('timing'), respSize: $('respSize'), pathIndicator: $('pathIndicator'), ctxMenu: $('ctxMenu'), modalOverlay: $('modalOverlay'), modalTitle: $('modalTitle'), modalInput: $('modalInput'), modalOk: $('modalOk'), modalCancel: $('modalCancel'), folderModal: $('folderModal'), fmPath: $('fmPath'), fmName: $('fmName'), fmAuthType: $('fmAuthType'), fmAuthToken: $('fmAuthToken'), fmAuthUser: $('fmAuthUser'), fmAuthPass: $('fmAuthPass'), fmApiKey: $('fmApiKey'), fmApiVal: $('fmApiVal'), fmApiLoc: $('fmApiLoc'), fmBearerSect: $('fm-auth-bearer'), fmBasicSect: $('fm-auth-basic'), fmApikeySect: $('fm-auth-apikey'), badgeParams: $('badge-params'), badgeHeaders: $('badge-headers'), reqTabs: $('reqTabs'), graphqlPane: $('graphqlPane'), gqlQuery: $('gqlQuery'), gqlVars: $('gqlVars'), respHeadersPane: $('respHeadersPane'), respHeadersTable: $('respHeadersTable'), respTabs: $('respTabs'), respCopyBtn: $('respCopyBtn'), envSelect: $('envSelect'), envEditor: $('envEditor'), addEnvBtn: $('addEnvBtn'), tests: $('tests'), respTestsPane: $('respTestsPane'), testsBadge: $('testsBadge'), oauth2Sect: $('auth-oauth2-sect'), };
 function applyTheme(dark) {
     root.setAttribute('data-theme', dark ? 'dark' : 'light'); if (D.darkToggle) D.darkToggle.checked = dark;
     localStorage.setItem('ph-theme', dark ? 'dark' : 'light');
@@ -50,10 +50,11 @@ function makeResizable(resizerId, panelId) {
 const BODY_PLACEHOLDERS = { none: '', form: 'key=value&key2=value2', json: '{\n  "key": "value"\n}', xml: '<?xml version="1.0"?>\n<root>\n  <key>value</key>\n</root>', text: 'Plain text...', toon: 'context:\n  task: example\nitems[2]{id,name}:\n  1,Alpha\n  2,Beta' };
 const BODY_CT = { form: 'application/x-www-form-urlencoded', json: 'application/json', xml: 'application/xml', text: 'text/plain', graphql: 'application/json', toon: 'text/toon' };
 let formGridData = [{ k: '', v: '' }]; let paramsGridData = [{ k: '', v: '' }]; let headersGridData = [{ k: '', v: '' }];
-let bodyType = 'form'; function showAuthSections(val, bearer, basic, apikey) {
+let bodyType = 'form'; function showAuthSections(val, bearer, basic, apikey, oauth2) {
     bearer.style.display = val === 'bearer' ? 'block' : 'none';
     basic.style.display = val === 'basic' ? 'block' : 'none'; apikey.style.display = val === 'apikey' ? 'block' : 'none';
-} D.authType.addEventListener('change', e => showAuthSections(e.target.value, D.bearerSect, D.basicSect, D.apikeySect));
+    if (oauth2) oauth2.style.display = val === 'oauth2' ? 'block' : 'none';
+} D.authType.addEventListener('change', e => showAuthSections(e.target.value, D.bearerSect, D.basicSect, D.apikeySect, D.oauth2Sect));
 D.fmAuthType.addEventListener('change', e => showAuthSections(e.target.value, D.fmBearerSect, D.fmBasicSect, D.fmApikeySect));
 D.reqTabs.addEventListener('click', e => {
     const tab = e.target.closest('.req-tab'); if (!tab) return;
@@ -61,8 +62,8 @@ D.reqTabs.addEventListener('click', e => {
 }); D.respTabs.addEventListener('click', e => {
     const tab = e.target.closest('.resp-tab');
     if (!tab) return; $$('.resp-tab').forEach(t => t.classList.toggle('active', t === tab));
-    const showBody = tab.dataset.rtab === 'body'; D.resp.style.display = showBody ? '' : 'none';
-    D.respHeadersPane.style.display = showBody ? 'none' : '';
+    const rt = tab.dataset.rtab; D.resp.style.display = rt === 'body' ? '' : 'none';
+    D.respHeadersPane.style.display = rt === 'headers' ? '' : 'none'; D.respTestsPane.style.display = rt === 'tests' ? '' : 'none';
 }); function renderGrid(containerId, dataArray) {
     const container = $(containerId);
     if (!container) return; container.innerHTML = ''; dataArray.forEach((row, idx) => {
@@ -103,7 +104,7 @@ D.reqTabs.addEventListener('click', e => {
     D.fmPath.value = path; D.fmName.textContent = path;
     const meta = savedList.find(e => e.isFolderMeta && e.path === path) || {}; D.fmAuthType.value = meta.authType || 'inherit';
     D.fmAuthToken.value = meta.authToken || ''; D.fmAuthUser.value = meta.authUser || ''; D.fmAuthPass.value = meta.authPass || '';
-    D.fmApiKey.value = meta.apiKey || ''; D.fmApiVal.value = meta.apiVal || ''; D.fmApiLoc.value = meta.apiLoc || 'Header';
+    D.fmApiKey.value = meta.apiKey || ''; D.fmApiVal.value = meta.apiVal || ''; D.fmApiLoc.value = (meta.apiLoc || 'header').toLowerCase();
     D.fmAuthType.dispatchEvent(new Event('change')); D.folderModal.style.display = 'flex';
 } function saveFolderMeta() {
     const p = D.fmPath.value; let meta = savedList.find(e => e.isFolderMeta && e.path === p);
@@ -211,7 +212,7 @@ function renderSaved() {
 } loadSaved(); function doSave() {
     const name = D.reqName.value.trim() || 'Untitled';
     const folder = D.reqFolder.value.trim() || 'Uncategorized'; const url = D.url.value.trim();
-    const method = D.method.value; if (!url) return; const entry = { id: Math.random().toString(36).substr(2, 9), name, folder, method, url, authType: D.authType.value, authToken: D.authToken.value.trim(), authUser: D.authUser.value.trim(), authPass: D.authPass.value.trim(), apiKey: D.apiKey.value.trim(), apiVal: D.apiVal.value.trim(), apiLoc: D.apiLoc.value, bodyType, body: D.body.value.trim(), gqlQuery: D.gqlQuery.value, gqlVars: D.gqlVars.value, };
+    const method = D.method.value; if (!url) return; const entry = { id: Math.random().toString(36).substr(2, 9), name, folder, method, url, authType: D.authType.value, authToken: D.authToken.value.trim(), authUser: D.authUser.value.trim(), authPass: D.authPass.value.trim(), apiKey: D.apiKey.value.trim(), apiVal: D.apiVal.value.trim(), apiLoc: D.apiLoc.value, bodyType, body: D.body.value.trim(), gqlQuery: D.gqlQuery.value, gqlVars: D.gqlVars.value, tests: D.tests.value, oauth: readOauth(), };
     if (bodyType === 'form') entry.formGridData = JSON.parse(JSON.stringify(formGridData));
     entry.paramsGridData = JSON.parse(JSON.stringify(paramsGridData)); entry.headersGridData = JSON.parse(JSON.stringify(headersGridData));
     const activeTab = tabs.find(t => t.id === activeTabId); let idx = -1; if (activeTab && activeTab.data.id) idx = savedList.findIndex(e => e.id === activeTab.data.id);
@@ -222,7 +223,7 @@ function renderSaved() {
     setTimeout(() => D.saveBtn.textContent = 'Save', 1800);
 } let tabs = [], activeTabId = null;
 function createTab(data = null) {
-    const id = Math.random().toString(36).substr(2, 9); const tab = { id, name: data ? (data.name || 'New Request') : 'New Request', data: data ? JSON.parse(JSON.stringify(data)) : { id: null, name: '', folder: 'Uncategorized', method: 'GET', url: '', authType: 'none', authToken: '', authUser: '', authPass: '', apiKey: '', apiVal: '', apiLoc: 'Header', bodyType: 'none', body: '', gqlQuery: '', gqlVars: '', formGridData: [{ k: '', v: '' }], paramsGridData: [{ k: '', v: '' }], headersGridData: [{ k: '', v: '' }] }, respState: data && data.respState ? JSON.parse(JSON.stringify(data.respState)) : { text: '', isJson: false, badge: '', timing: '', color: '', size: 0, respHeaders: '' } };
+    const id = Math.random().toString(36).substr(2, 9); const tab = { id, name: data ? (data.name || 'New Request') : 'New Request', data: data ? JSON.parse(JSON.stringify(data)) : { id: null, name: '', folder: 'Uncategorized', method: 'GET', url: '', authType: 'none', authToken: '', authUser: '', authPass: '', apiKey: '', apiVal: '', apiLoc: 'header', bodyType: 'none', body: '', gqlQuery: '', gqlVars: '', tests: '', oauth: null, formGridData: [{ k: '', v: '' }], paramsGridData: [{ k: '', v: '' }], headersGridData: [{ k: '', v: '' }] }, respState: data && data.respState ? JSON.parse(JSON.stringify(data.respState)) : { text: '', isJson: false, badge: '', timing: '', color: '', size: 0, respHeaders: '' } };
     tabs.push(tab); switchTab(id); renderTabs();
 } function switchTab(id) {
     if (activeTabId) saveCurrentTabState();
@@ -238,7 +239,7 @@ function createTab(data = null) {
     } renderTabs();
 } function saveCurrentTabState() {
     const tab = tabs.find(t => t.id === activeTabId);
-    if (!tab) return; tab.data = { id: tab.data.id, name: D.reqName.value, folder: D.reqFolder.value, method: D.method.value, url: D.url.value, authType: D.authType.value, authToken: D.authToken.value, authUser: D.authUser.value, authPass: D.authPass.value, apiKey: D.apiKey.value, apiVal: D.apiVal.value, apiLoc: D.apiLoc.value, bodyType, body: D.body.value, gqlQuery: D.gqlQuery.value, gqlVars: D.gqlVars.value, formGridData: JSON.parse(JSON.stringify(formGridData)), paramsGridData: JSON.parse(JSON.stringify(paramsGridData)), headersGridData: JSON.parse(JSON.stringify(headersGridData)) };
+    if (!tab) return; tab.data = { id: tab.data.id, name: D.reqName.value, folder: D.reqFolder.value, method: D.method.value, url: D.url.value, authType: D.authType.value, authToken: D.authToken.value, authUser: D.authUser.value, authPass: D.authPass.value, apiKey: D.apiKey.value, apiVal: D.apiVal.value, apiLoc: D.apiLoc.value, bodyType, body: D.body.value, gqlQuery: D.gqlQuery.value, gqlVars: D.gqlVars.value, tests: D.tests.value, oauth: readOauth(), formGridData: JSON.parse(JSON.stringify(formGridData)), paramsGridData: JSON.parse(JSON.stringify(paramsGridData)), headersGridData: JSON.parse(JSON.stringify(headersGridData)) };
     tab.name = tab.data.name || 'Untitled';
 } function setBodyUI(type) {
     bodyType = type; D.formGrid.style.display = 'none';
@@ -253,8 +254,8 @@ function createTab(data = null) {
     D.reqFolder.value = d.folder || 'Uncategorized'; D.method.value = d.method || 'GET'; D.url.value = d.url || '';
     D.authType.value = d.authType || 'none'; D.authToken.value = d.authToken || ''; D.authUser.value = d.authUser || '';
     D.authPass.value = d.authPass || ''; D.apiKey.value = d.apiKey || ''; D.apiVal.value = d.apiVal || '';
-    D.apiLoc.value = d.apiLoc || 'Header'; D.authType.dispatchEvent(new Event('change'));
-    D.body.value = d.body || ''; D.gqlQuery.value = d.gqlQuery || ''; D.gqlVars.value = d.gqlVars || '';
+    D.apiLoc.value = (d.apiLoc || 'header').toLowerCase(); writeOauth(d.oauth); D.authType.dispatchEvent(new Event('change'));
+    D.tests.value = d.tests || ''; D.body.value = d.body || ''; D.gqlQuery.value = d.gqlQuery || ''; D.gqlVars.value = d.gqlVars || '';
     $$('.bt').forEach(b => b.classList.toggle('active', b.dataset.type === (d.bodyType || 'none')));
     setBodyUI(d.bodyType || 'none'); formGridData = d.formGridData ? JSON.parse(JSON.stringify(d.formGridData)) : [{ k: '', v: '' }];
     paramsGridData = d.paramsGridData ? JSON.parse(JSON.stringify(d.paramsGridData)) : [{ k: '', v: '' }];
@@ -288,7 +289,69 @@ function createTab(data = null) {
 } function formatSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'; return (bytes / 1048576).toFixed(2) + ' MB';
-} async function doSend() {
+} const b64 = s => btoa(String.fromCharCode(...new TextEncoder().encode(s || '')));
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function proxyFetch(method, url, ct, headers, body) {
+    const ph = { 'X-Proxy-URL': b64(url), 'X-Proxy-Method': method, 'X-Proxy-CT': b64(ct) };
+    if (headers.length) ph['X-Proxy-Headers'] = b64(headers.join('\n'));
+    return fetch('/proxy', { method: 'POST', headers: ph, body });
+} const OA = { grant: 'oaGrant', authUrl: 'oaAuthUrl', tokenUrl: 'oaTokenUrl', clientId: 'oaClientId', clientSecret: 'oaClientSecret', scope: 'oaScope', user: 'oaUser', pass: 'oaPass', accessToken: 'oaToken', refreshToken: 'oaRefresh', expiresAt: 'oaExpires' };
+function readOauth() {
+    const o = {}; for (const k in OA) o[k] = $(OA[k]).value.trim(); return o;
+} function writeOauth(o) {
+    o = o || {}; for (const k in OA) $(OA[k]).value = o[k] || (k === 'grant' ? 'client_credentials' : ''); oauthGrantUI();
+} function oauthGrantUI() {
+    const g = $('oaGrant').value; $('oaAuthUrl').style.display = g === 'authorization_code' ? '' : 'none';
+    $('oaPwRow').style.display = g === 'password' ? '' : 'none';
+    $('oaStatus').textContent = g === 'authorization_code' ? 'Redirect URI: ' + location.origin + '/oauth/callback' : '';
+} const oauthClear = () => { $('oaRefresh').value = ''; $('oaExpires').value = ''; };
+$('oaGrant').addEventListener('change', () => { $('oaToken').value = ''; oauthClear(); oauthGrantUI(); });
+$('oaToken').addEventListener('input', e => { if (!e.target.value) oauthClear(); });
+async function oauthToken(o, params) {
+    const r = s => resolveEnvVars(s || ''); if (!o.tokenUrl) throw new Error('OAuth: Token URL is empty');
+    const p = new URLSearchParams(params); if (o.scope && params.grant_type !== 'refresh_token' && params.grant_type !== 'authorization_code') p.set('scope', r(o.scope));
+    const hdrs = ['Accept: application/json'];
+    if (o.clientSecret) hdrs.push('Authorization: Basic ' + b64(encodeURIComponent(r(o.clientId)) + ':' + encodeURIComponent(r(o.clientSecret))));
+    else p.set('client_id', r(o.clientId));
+    const res = await proxyFetch('POST', r(o.tokenUrl), 'application/x-www-form-urlencoded', hdrs, p.toString());
+    const text = await res.text(); let j; try { j = JSON.parse(text); } catch (e) { j = Object.fromEntries(new URLSearchParams(text)); }
+    if (!j || !j.access_token) throw new Error('OAuth: ' + ((j && (j.error_description || j.error)) || 'token endpoint returned ' + (res.headers.get('X-Proxy-Status') || 'no response')));
+    return { ...o, accessToken: j.access_token, refreshToken: j.refresh_token || o.refreshToken, expiresAt: j.expires_in ? String(Date.now() + j.expires_in * 1000) : '' };
+} async function oauthAuthCode(o) {
+    const r = s => resolveEnvVars(s || ''); if (!o.authUrl) throw new Error('OAuth: Auth URL is empty');
+    const verifier = b64url(crypto.getRandomValues(new Uint8Array(32))), state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+    const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    const redirect = location.origin + '/oauth/callback'; const u = new URL(r(o.authUrl));
+    Object.entries({ response_type: 'code', client_id: r(o.clientId), redirect_uri: redirect, state, code_challenge: challenge, code_challenge_method: 'S256' }).forEach(([k, v]) => u.searchParams.set(k, v));
+    if (o.scope) u.searchParams.set('scope', r(o.scope));
+    const win = window.open(u.toString(), 'ph-oauth', 'width=520,height=680'); if (!win) throw new Error('OAuth: popup blocked');
+    const msg = await new Promise((resolve, reject) => {
+        let done = false; const onMsg = e => {
+            if (e.origin !== location.origin || !e.data || !e.data.oauth) return; done = true; finish(); resolve(e.data);
+        }; const finish = () => { clearInterval(timer); window.removeEventListener('message', onMsg); };
+        // The callback posts then closes itself, so give a queued message a moment before treating "closed" as cancel.
+        const timer = setInterval(() => {
+            if (win.closed) { clearInterval(timer); setTimeout(() => { if (!done) { finish(); reject(new Error('OAuth: sign-in window closed')); } }, 500); }
+        }, 500); window.addEventListener('message', onMsg);
+    });
+    if (msg.error) throw new Error('OAuth: ' + msg.error); if (msg.state !== state) throw new Error('OAuth: state mismatch');
+    return oauthToken(o, { grant_type: 'authorization_code', code: msg.code, redirect_uri: redirect, code_verifier: verifier });
+} async function oauthEnsure(o, force) {
+    const fresh = o.accessToken && !(o.expiresAt && Date.now() > Number(o.expiresAt) - 30000);
+    if (fresh && !force) return o;
+    if (o.refreshToken && !force) {
+        try { return await oauthToken(o, { grant_type: 'refresh_token', refresh_token: o.refreshToken }); } catch (e) { }
+    } if (o.grant === 'authorization_code') {
+        if (!force) throw new Error('OAuth: no valid token, click Get Token to sign in'); return oauthAuthCode(o);
+    } return oauthToken(o, o.grant === 'password' ? { grant_type: 'password', username: resolveEnvVars(o.user), password: resolveEnvVars(o.pass) } : { grant_type: 'client_credentials' });
+} function oauthStored(o) {
+    writeOauth(o); saveCurrentTabState(); const ex = Number(o.expiresAt);
+    $('oaStatus').textContent = 'Token acquired' + (ex ? ', expires ' + new Date(ex).toLocaleTimeString() : '') + (o.refreshToken ? ', refresh token stored' : '');
+} $('oaGetBtn').onclick = async () => {
+    $('oaStatus').textContent = 'Requesting token...';
+    try { oauthStored(await oauthEnsure(readOauth(), true)); } catch (e) { $('oaStatus').textContent = e.message; }
+};
+async function doSend() {
     let url = D.url.value.trim(); const method = D.method.value;
     const btn = D.sendBtn; if (!url) return; btn.disabled = true; btn.textContent = 'Sending...';
     url = resolveEnvVars(url); let finalUrl = url; const urlParts = finalUrl.split('?'); const urlsp = new URLSearchParams(urlParts[1] || '');
@@ -310,7 +373,7 @@ function createTab(data = null) {
     } else {
         finalBody = resolveEnvVars(D.body.value.trim());
     } const ct = bodyType === 'none' ? '' : ((BODY_CT[bodyType] || 'text/plain') + '; charset=utf-8');
-    const proxyParams = new URLSearchParams({ url: finalUrl, method, body: finalBody, ct }); const reqHeaders = [];
+    const reqHeaders = [];
     headersGridData.forEach(r => {
         if (r.k) reqHeaders.push(resolveEnvVars(r.k) + ': ' + resolveEnvVars(r.v));
     }); let at = D.authType.value; let authMeta = { authToken: D.authToken.value.trim(), authUser: D.authUser.value.trim(), authPass: D.authPass.value.trim(), apiKey: D.apiKey.value.trim(), apiVal: D.apiVal.value.trim(), apiLoc: D.apiLoc.value };
@@ -323,26 +386,26 @@ function createTab(data = null) {
             at = found.authType;
             authMeta = found;
         } else { at = 'none'; }
-    } if (at === 'bearer') {
-        reqHeaders.push('Authorization: Bearer ' + resolveEnvVars(authMeta.authToken));
-    } else if (at === 'basic') {
-        reqHeaders.push('Authorization: Basic ' + btoa(resolveEnvVars(authMeta.authUser) + ':' + resolveEnvVars(authMeta.authPass)));
-    } else if (at === 'apikey' && authMeta.apiKey) {
-        if (authMeta.apiLoc === 'Header') reqHeaders.push(resolveEnvVars(authMeta.apiKey) + ': ' + resolveEnvVars(authMeta.apiVal));
-        else {
-            finalUrl += (finalUrl.includes('?') ? '&' : '?') + encodeURIComponent(resolveEnvVars(authMeta.apiKey)) + '=' + encodeURIComponent(resolveEnvVars(authMeta.apiVal));
-            proxyParams.set('url', finalUrl);
-        }
-    } if (reqHeaders.length) proxyParams.append('headers', reqHeaders.join('\n'));
-    const t0 = Date.now(); try {
+    } let t0 = Date.now(); try {
+        if (at === 'bearer') {
+            reqHeaders.push('Authorization: Bearer ' + resolveEnvVars(authMeta.authToken));
+        } else if (at === 'basic') {
+            reqHeaders.push('Authorization: Basic ' + btoa(resolveEnvVars(authMeta.authUser) + ':' + resolveEnvVars(authMeta.authPass)));
+        } else if (at === 'apikey' && authMeta.apiKey) {
+            if ((authMeta.apiLoc || 'header').toLowerCase() === 'header') reqHeaders.push(resolveEnvVars(authMeta.apiKey) + ': ' + resolveEnvVars(authMeta.apiVal));
+            else finalUrl += (finalUrl.includes('?') ? '&' : '?') + encodeURIComponent(resolveEnvVars(authMeta.apiKey)) + '=' + encodeURIComponent(resolveEnvVars(authMeta.apiVal));
+        } else if (at === 'oauth2') {
+            const before = readOauth(); const o = await oauthEnsure(before, false);
+            if (o.accessToken !== before.accessToken) oauthStored(o);
+            reqHeaders.push('Authorization: Bearer ' + o.accessToken); t0 = Date.now();
+        } let s;
         if (D.corsToggle.checked) {
-            const r = await fetch('/proxy', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' }, body: proxyParams.toString() });
+            const r = await proxyFetch(method, finalUrl, ct, reqHeaders, finalBody);
             const text = await r.text(); const ms = (Date.now() - t0) + 'ms'; const status = parseInt(r.headers.get('X-Proxy-Status') || '0', 10);
             const respSize = parseInt(r.headers.get('X-Resp-Size') || text.length, 10); const respHdrsB64 = r.headers.get('X-Resp-Headers') || '';
             let respHeaders = ''; try { respHeaders = atob(respHdrsB64); } catch (e) { } const isJson = text.trim().startsWith('{') || text.trim().startsWith('[');
             let badgeColor = 'var(--save)'; if (status >= 500) badgeColor = 'var(--red)'; else if (status >= 400) badgeColor = '#e67e22';
-            const s = { text, isJson, badge: status || 'Error', timing: ms, color: badgeColor, size: respSize, respHeaders };
-            loadResponseState(s); const tab = tabs.find(t => t.id === activeTabId); if (tab) tab.respState = s;
+            s = { text, isJson, badge: status || 'Error', timing: ms, color: badgeColor, size: respSize, respHeaders };
         } else {
             const init = { method }; if (reqHeaders.length) {
                 const hdrs = {}; reqHeaders.forEach(h => {
@@ -355,21 +418,32 @@ function createTab(data = null) {
             const status = r.status || 0; const respSize = text.length; let respHeadersArr = []; r.headers.forEach((val, key) => respHeadersArr.push(key + ': ' + val));
             const respHeaders = respHeadersArr.join('\r\n'); const isJson = text.trim().startsWith('{') || text.trim().startsWith('[');
             let badgeColor = 'var(--save)'; if (status >= 500) badgeColor = 'var(--red)'; else if (status >= 400) badgeColor = '#e67e22';
-            const s = { text, isJson, badge: status || 'Error', timing: ms, color: badgeColor, size: respSize, respHeaders };
-            loadResponseState(s); const tab = tabs.find(t => t.id === activeTabId); if (tab) tab.respState = s;
-        } addToHistory({ method, url: D.url.value.trim(), name: D.url.value.trim(), data: { method, url: D.url.value.trim(), body: finalBody, bodyType, authType: D.authType.value, authToken: D.authToken.value } });
+            s = { text, isJson, badge: status || 'Error', timing: ms, color: badgeColor, size: respSize, respHeaders };
+        } s.tests = runAsserts(resolveEnvVars(D.tests.value), { status: parseInt(s.badge, 10) || 0, ms: parseInt(s.timing, 10), size: s.size, headers: s.respHeaders, body: s.text });
+        loadResponseState(s); const tab = tabs.find(t => t.id === activeTabId); if (tab) tab.respState = s;
+        addToHistory({ method, url: D.url.value.trim(), name: D.url.value.trim(), data: { method, url: D.url.value.trim(), body: finalBody, bodyType, authType: D.authType.value, authToken: D.authToken.value } });
     } catch (e) {
-        loadResponseState({ text: 'Network Error: ' + e.message, isJson: false, badge: 'Failed', timing: (Date.now() - t0) + 'ms', color: 'var(--red)', size: 0, respHeaders: '' });
+        loadResponseState({ text: (e.message.startsWith('OAuth') ? '' : 'Network Error: ') + e.message, isJson: false, badge: 'Failed', timing: (Date.now() - t0) + 'ms', color: 'var(--red)', size: 0, respHeaders: '' });
     } btn.disabled = false; btn.textContent = 'Send';
 } function loadResponseState(s) {
     if (!s || !s.badge) {
         D.resp.innerHTML = 'Prepare to call your API...';
         D.resp.className = 'dim'; D.badge.textContent = ''; D.badge.className = ''; D.badge.style.background = '';
         D.badge.style.color = ''; D.timing.textContent = ''; D.respSize.textContent = ''; D.respHeadersTable.innerHTML = '';
-        return;
-    } D.badge.textContent = s.badge; const _code = parseInt(s.badge, 10); D.badge.className = !_code ? 'err' : (_code >= 500 ? 'err' : (_code >= 400 ? 'warn' : 'ok'));
+        renderTests(null); return;
+    } renderTests(s.tests); D.badge.textContent = s.badge; const _code = parseInt(s.badge, 10); D.badge.className = !_code ? 'err' : (_code >= 500 ? 'err' : (_code >= 400 ? 'warn' : 'ok'));
     D.badge.style.color = ''; D.badge.style.background = ''; D.timing.textContent = s.timing;
     D.respSize.textContent = formatSize(s.size || 0); renderResponse(s.text, s.isJson); renderRespHeaders(s.respHeaders || '');
+} function renderTests(list) {
+    D.respTestsPane.innerHTML = ''; D.testsBadge.textContent = ''; D.testsBadge.className = '';
+    if (!list || !list.length) { D.respTestsPane.innerHTML = '<span class="empty">No tests. Add assertions in the Tests tab.</span>'; return; }
+    const ok = list.filter(t => t.pass).length; D.testsBadge.textContent = ok + '/' + list.length; D.testsBadge.className = ok === list.length ? 'ok' : 'bad';
+    list.forEach(t => {
+        const row = document.createElement('div'); row.className = 't-row ' + (t.pass ? 't-pass' : 't-fail');
+        row.innerHTML = '<span class="t-ico"></span><span></span><span class="t-msg"></span>';
+        row.children[0].textContent = t.pass ? '✓' : '✗'; row.children[1].textContent = t.line; row.children[2].textContent = t.msg;
+        D.respTestsPane.appendChild(row);
+    });
 } function renderResponse(text, isJson) {
     D.resp.innerHTML = ''; D.resp.className = ''; if (isJson) {
         try {
@@ -507,7 +581,7 @@ function createTab(data = null) {
         const u = new URL(r.url.replace(/\{\{[^}]*\}\}/g, 'x')); name = (u.pathname.split('/').filter(Boolean).pop()) || u.hostname;
     } catch (e) {
         const seg = r.url.split(/[\/?]/).filter(Boolean); name = seg.length ? seg[seg.length - 1] : 'Imported';
-    } return { name, folder: 'Uncategorized', method: r.method || 'GET', url: r.url, authType, authToken, authUser, authPass, apiKey: '', apiVal: '', apiLoc: 'Header', bodyType, body, gqlQuery: '', gqlVars: '', formGridData, paramsGridData: [{ k: '', v: '' }], headersGridData };
+    } return { name, folder: 'Uncategorized', method: r.method || 'GET', url: r.url, authType, authToken, authUser, authPass, apiKey: '', apiVal: '', apiLoc: 'header', bodyType, body, gqlQuery: '', gqlVars: '', formGridData, paramsGridData: [{ k: '', v: '' }], headersGridData };
 } function importCurl(text) {
     if (!text || !/curl\b/i.test(text)) return false; try {
         createTab(parseCurl(text));
@@ -522,8 +596,8 @@ function createTab(data = null) {
     if (at === 'bearer') parts.push(`-H 'Authorization: Bearer ${resolveEnvVars(authMeta.authToken)}'`);
     else if (at === 'basic') parts.push(`-H 'Authorization: Basic ${btoa(resolveEnvVars(authMeta.authUser) + ':' + resolveEnvVars(authMeta.authPass))}'`);
     else if (at === 'apikey' && authMeta.apiKey) {
-        if (authMeta.apiLoc === 'Header') parts.push(`-H '${resolveEnvVars(authMeta.apiKey)}: ${resolveEnvVars(authMeta.apiVal)}'`);
-    } if (bodyType !== 'none') {
+        if (authMeta.apiLoc.toLowerCase() === 'header') parts.push(`-H '${resolveEnvVars(authMeta.apiKey)}: ${resolveEnvVars(authMeta.apiVal)}'`);
+    } else if (at === 'oauth2' && $('oaToken').value.trim()) parts.push(`-H 'Authorization: Bearer ${$('oaToken').value.trim()}'`); if (bodyType !== 'none') {
         const ct = BODY_CT[bodyType] || 'text/plain'; parts.push(`-H 'Content-Type: ${ct}; charset=utf-8'`);
         let bd = ''; if (bodyType === 'form') {
             const sp = new URLSearchParams(); formGridData.forEach(r => {

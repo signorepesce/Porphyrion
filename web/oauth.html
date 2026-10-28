@@ -1,0 +1,12 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Porphyrion OAuth</title></head>
+<body style="font-family:sans-serif;padding:2rem">
+<p id="m">Completing sign-in&hellip; this window closes itself.</p>
+<script>
+const p = new URLSearchParams(location.search);
+if (window.opener) {
+    window.opener.postMessage({ oauth: true, code: p.get('code'), state: p.get('state'), error: p.get('error_description') || p.get('error') }, location.origin);
+    window.close();
+} else document.getElementById('m').textContent = 'No opener window: start the sign-in from Porphyrion.';
+</script>
+</body></html>

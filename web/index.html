@@ -24,20 +24,35 @@ GET</option><option>QUERY</option><option selected>POST</option><option>PUT</opt
 </div></div><div class="req-tabs" id="reqTabs"><div class="req-tab" data-tab="params">
 Params <span id="badge-params" class="badge-hint">(0)</span></div><div class="req-tab" data-tab="headers">
 Headers <span id="badge-headers" class="badge-hint">(0)</span></div><div class="req-tab" data-tab="auth">
-Auth</div><div class="req-tab active" data-tab="body">Body</div></div><div class="req-panes">
+Auth</div><div class="req-tab active" data-tab="body">Body</div><div class="req-tab" data-tab="tests">Tests</div></div><div class="req-panes">
 <div class="req-pane" id="pane-params"><div id="paramsGrid" class="kv-grid"></div>
 </div><div class="req-pane" id="pane-headers"><div id="headersGrid" class="kv-grid">
 </div></div><div class="req-pane" id="pane-auth"><select id="authType" class="auth-select">
 <option value="inherit">Inherit from Parent</option><option value="none" selected>
 No Auth</option><option value="bearer">Bearer Token</option><option value="basic">
-Basic Auth</option><option value="apikey">API Key</option></select><div id="auth-bearer-sect" style="display:none">
+Basic Auth</option><option value="apikey">API Key</option><option value="oauth2">OAuth 2.0</option></select><div id="auth-bearer-sect" style="display:none">
 <input id="authToken" type="text" class="kv-input w-full" placeholder="Token"></div>
 <div id="auth-basic-sect" style="display:none"><input id="authUser" type="text" class="kv-input w-full mt-sm" placeholder="Username">
 <input id="authPass" type="password" class="kv-input w-full mt-sm" placeholder="Password">
 </div><div id="auth-apikey-sect" style="display:none"><div class="row"><input id="apiKey" type="text" class="kv-input row-fill" placeholder="Key">
 <input id="apiVal" type="text" class="kv-input row-fill" placeholder="Value"><select id="apiLoc" class="kv-input" style="width:100px;cursor:pointer">
 <option value="header">Header</option><option value="query">Query</option></select>
-</div></div></div><div class="req-pane active" id="pane-body"><div class="body-type-row" id="bodyTypes">
+</div></div><div id="auth-oauth2-sect" style="display:none"><select id="oaGrant" class="kv-input w-full">
+<option value="client_credentials">Client Credentials</option><option value="authorization_code">Authorization Code (PKCE)</option>
+<option value="password">Password</option></select><input id="oaAuthUrl" type="text" class="kv-input w-full mt-sm" placeholder="Auth URL (https://.../authorize)">
+<input id="oaTokenUrl" type="text" class="kv-input w-full mt-sm" placeholder="Token URL (https://.../token)">
+<div class="row mt-sm"><input id="oaClientId" type="text" class="kv-input row-fill" placeholder="Client ID">
+<input id="oaClientSecret" type="password" class="kv-input row-fill" placeholder="Client Secret (optional)"></div>
+<input id="oaScope" type="text" class="kv-input w-full mt-sm" placeholder="Scope (space separated)">
+<div id="oaPwRow" class="row mt-sm"><input id="oaUser" type="text" class="kv-input row-fill" placeholder="Username">
+<input id="oaPass" type="password" class="kv-input row-fill" placeholder="Password"></div>
+<div class="row mt-sm"><input id="oaToken" type="text" class="kv-input row-fill" placeholder="Access token (fetched on Send)">
+<button id="oaGetBtn" type="button" class="curl-btn">Get Token</button></div><input id="oaRefresh" type="hidden">
+<input id="oaExpires" type="hidden"><div id="oaStatus" class="lbl-sm mt-sm"></div></div></div>
+<div class="req-pane" id="pane-tests"><textarea id="tests" spellcheck="false" placeholder="status == 200&#10;time < 1000&#10;header content-type contains json&#10;json data.id exists&#10;json items.length > 0"></textarea>
+<div class="lbl-sm mt-sm">One per line: <b>status</b> | <b>time</b> | <b>size</b> | <b>body</b> | <b>header</b> Name | <b>json</b> path,
+then == != &gt; &lt; &gt;= &lt;= contains !contains exists !exists matches, then a value. {{vars}} work. # comments.</div>
+</div><div class="req-pane active" id="pane-body"><div class="body-type-row" id="bodyTypes">
 <span class="bt" data-type="none">No Body</span><span class="bt active" data-type="form">
 Form Encoded</span><span class="bt" data-type="json">JSON</span><span class="bt" data-type="xml">
 XML</span><span class="bt" data-type="text">TEXT</span><span class="bt" data-type="graphql">
@@ -57,9 +72,11 @@ Save</button><button id="curlBtn" class="curl-btn" title="Copy as cURL">cURL</bu
 <div class="panel-hd"> Response <span id="badge"></span><span id="timing" class="timing-lbl">
 </span><span id="respSize" class="timing-lbl"></span><button id="respCopyBtn" class="resp-copy" title="Copy response">
 Copy</button></div><div class="resp-tabs" id="respTabs"><div class="resp-tab active" data-rtab="body">
-Body</div><div class="resp-tab" data-rtab="headers">Headers</div></div><div class="panel-body">
+Body</div><div class="resp-tab" data-rtab="headers">Headers</div><div class="resp-tab" data-rtab="tests">
+Tests <span id="testsBadge"></span></div></div><div class="panel-body">
 <pre id="resp" class="dim">Prepare to call your API...</pre><div id="respHeadersPane" style="display:none">
-<table id="respHeadersTable" class="resp-hdr-table"></table></div></div></div></div>
+<table id="respHeadersTable" class="resp-hdr-table"></table></div><div id="respTestsPane" style="display:none">
+</div></div></div></div>
 </div></div><div id="folderModal" class="fm-overlay"><div class="fm-card"><div class="fm-hdr">
 <h3>Folder Auth: <span id="fmName" style="color:var(--acc)"></span></h3><div class="fm-close" onclick="document.getElementById('folderModal').style.display='none'">
 &times;</div></div><input type="hidden" id="fmPath"><div><label class="lbl-sm">Auth Type</label>
@@ -79,6 +96,6 @@ Save Folder</button></div></div></div><div id="importModal" class="modal-overlay
 </textarea><div class="modal-btns"><button class="modal-btn" id="importCancel">Cancel</button>
 <button class="modal-btn primary" id="importOk">Import</button></div></div></div>
 <div id="graphLayer"><canvas id="graphCanvas"></canvas><div id="graphNodes"></div>
-<button id="closeGraphBtn">Close map</button></div><script src="js/app.js"></script>
+<button id="closeGraphBtn">Close map</button></div><script src="js/assert.js"></script><script src="js/app.js"></script>
 <script src="js/graph.js"></script><script src="js/import.js"></script><script src="js/sync.js">
 </script></body></html>

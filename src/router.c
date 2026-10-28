@@ -32,6 +32,8 @@ static const struct
     {"/js/graph.js", "web/js/graph.js", "text/javascript"},
     {"/js/import.js", "web/js/import.js", "text/javascript"},
     {"/js/sync.js", "web/js/sync.js", "text/javascript"},
+    {"/js/assert.js", "web/js/assert.js", "text/javascript"},
+    {"/oauth/callback", "web/oauth.html", "text/html"},
     {"/resources/hat.png", "resources/hat.png", "image/png"},
     {"/requests.json", "data/requests.json", "application/json"},
 };
@@ -289,9 +291,12 @@ static void route_request(WorkerCtx *ctx, int sock, const HttpRequest *req)
     }
     if (strcmp(req->method, "GET") == 0)
     {
+        /* Ignore the query string: /oauth/callback?code=... */
+        size_t plen = strcspn(req->path, "?");
         for (int i = 0; i < STATIC_FILE_COUNT; i++)
         {
-            if (strcmp(req->path, STATIC_FILES[i].route) == 0)
+            if (strlen(STATIC_FILES[i].route) == plen &&
+                strncmp(req->path, STATIC_FILES[i].route, plen) == 0)
             {
                 if (strcmp(STATIC_FILES[i].fs_path, "data/requests.json") ==
                         0 &&
